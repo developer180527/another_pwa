@@ -1,63 +1,98 @@
-const CACHE = "pwa-v2";
+const CACHE = "pwa-v3";
 
-const ASSETS = [
+const ASSETS = [            
   "/index.html",
   "/app.js",
   "/manifest.json",
-  "/icons/icon_512x512@2x.png"
+  "/icons/icon_512x512@2x.png",
 ];
 
-// Install: cache app shell
-self.addEventListener("install", e => {
+
+self.addEventListener("install", (e) => {
+
   e.waitUntil(
-    caches.open(CACHE).then(cache => cache.addAll(ASSETS))
+    (async () => {
+      const cache = await caches.open(CACHE);
+
+
+      const results = await Promise.allSettled(
+        ASSETS.map((url) => cache.add(new Request(url, { cache: "reload" })))
+      );
+
+      results.forEach((r, i) => {
+        if (r.status === "rejected")
+          console.warn(`[SW] Failed to pre-cache ${ASSETS[i]}:`, r.reason);
+      });
+
+      await self.skipWaiting(); 
+    })()
   );
-  self.skipWaiting();
 });
 
-// Activate: remove old caches
-self.addEventListener("activate", e => {
+// ─── Activate ─────────────────────────────────────────────────────────────────
+self.addEventListener("activate", (e) => {
+  // ✅ FIX 1: clients.claim() is INSIDE waitUntil
   e.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys.map(k => (k !== CACHE ? caches.delete(k) : null)))
-    )
+    (async () => {
+      const keys = await caches.keys();
+      await Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)));
+      await self.clients.claim(); // ✅ runs only after old caches are cleared
+    })()
   );
-  self.clients.claim();
 });
 
-// Fetch strategy compatible with iOS + Android
-self.addEventListener("fetch", e => {
+// ─── Fetch ────────────────────────────────────────────────────────────────────
+self.addEventListener("fetch", (e) => {
   const req = e.request;
 
   if (req.method !== "GET") return;
+  if (!req.url.startsWith(self.location.origin)) return;
+  if (!req.url.startsWith("http")) return;
 
-  // Navigation requests (page loads) – critical for iOS PWAs
+  // Navigation requests — network-first so updates always reach the user,
+  // ✅ FIX 4: was pure cache-first meaning iOS users never received updates
   if (req.mode === "navigate") {
     e.respondWith(
-      caches.match("/index.html").then(cached => {
+      (async () => {
+        try {
+          const res = await fetch("/index.html", { cache: "no-cache" });
+          if (res && res.status === 200) {
+            const cache = await caches.open(CACHE);
+            await cache.put("/index.html", res.clone());
+            return res;
+          }
+        } catch { /* offline — fall through to cache */ }
+
+        const cached = await caches.match("/index.html");
         if (cached) return cached;
-        return fetch("/index.html");
-      })
+
+        // Bare minimum offline shell
+        return new Response("<h1>You're offline</h1>", {
+          headers: { "Content-Type": "text/html" },
+        });
+      })()
     );
     return;
   }
 
-  // Ignore cross-origin
-  if (!req.url.startsWith(self.location.origin)) return;
-
-  // Cache-first for assets
+  // Static assets — cache-first, network fallback, silent miss on failure
   e.respondWith(
-    caches.match(req).then(cached => {
+    (async () => {
+      const cached = await caches.match(req);
       if (cached) return cached;
 
-      return fetch(req).then(res => {
-        if (!res || res.redirected || res.status !== 200 || res.type !== "basic") return res;
+      try {
+        const res = await fetch(req);
+        if (!res || res.redirected || res.status !== 200 || res.type !== "basic")
+          return res;
 
-        const copy = res.clone();
-        caches.open(CACHE).then(cache => cache.put(req, copy));
-
+        const cache = await caches.open(CACHE);
+        await cache.put(req, res.clone());
         return res;
-      }).catch(() => caches.match("/index.html"));
-    })
+      } catch {
+
+        return new Response("Offline", { status: 503 });
+      }
+    })()
   );
 });
