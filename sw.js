@@ -8,7 +8,8 @@ self.addEventListener("install", event => {
         "/",
         "/index.html",
         "/app.js",
-        "/manifest.json"
+        "/manifest.json",
+        "/icons/icon_512x512@2x.png"
       ])
     )
   );
@@ -20,20 +21,17 @@ self.addEventListener("activate", event => {
 });
 
 self.addEventListener("fetch", event => {
-  // 👇 THIS IS THE MAGIC
-  if (event.request.mode === "navigate") {
-    event.respondWith(
-      caches.match(OFFLINE_URL).then(response => {
-        return response || fetch(event.request);
-      })
-    );
-    return;
-  }
-
-  // Normal asset requests
   event.respondWith(
-    caches.match(event.request).then(response => {
-      return response || fetch(event.request);
+    caches.match(event.request).then(cached => {
+      if (cached) return cached;
+
+      return fetch(event.request).then(networkResponse => {
+        const copy = networkResponse.clone();
+        caches.open(CACHE).then(cache => {
+          cache.put(event.request, copy);
+        });
+        return networkResponse;
+      }).catch(() => caches.match(OFFLINE_URL));
     })
   );
 });
