@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Offline PWA Demo</title>
+
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+
+  <link rel="manifest" href="/manifest.json" />
+
+  <style>
+    body {
+      font-family: system-ui;
+      margin: 0;
+      padding: 20px;
+      background: #111;
+      color: white;
+    }
+    button {
+      padding: 12px;
+      font-size: 16px;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Offline PWA 🚀</h1>
+
+  <p id="status">Loading...</p>
+
+  <input id="note" placeholder="Write something…" />
+  <button onclick="saveNote()">Save</button>
+
+  <p id="saved"></p>
+
+  <script src="/app.js"></script>
+</body>
+</html>
