@@ -1,7 +1,6 @@
-const CACHE = "pwa-v1";
+const CACHE = "pwa-v2";
 
 const ASSETS = [
-  "/",
   "/index.html",
   "/app.js",
   "/manifest.json",
@@ -34,10 +33,10 @@ self.addEventListener("fetch", e => {
 
   // Navigation requests (page loads) – critical for iOS PWAs
   if (req.mode === "navigate") {
-    e.respondWith(
-      fetch(req).catch(() => caches.match("/index.html"))
-    );
-    return;
+  e.respondWith(
+    fetch(req).catch(() => caches.match("/index.html"))
+  );
+  return;
   }
 
   // Ignore cross-origin
