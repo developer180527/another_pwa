@@ -9,7 +9,7 @@ const noteInput = document.getElementById('note');
 
 const existing = localStorage.getItem('note');
 if (existing) saved.textContent = "Saved: " + existing;
-
+ 
 function saveNote() {
   const value = noteInput.value;
   localStorage.setItem('note', value);

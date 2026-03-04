@@ -1,62 +1,61 @@
-const CACHE = "offline-v3";
-const OFFLINE_URL = "/index.html";
+const CACHE = "pwa-v1";
 
-self.addEventListener("install", event => {
-  event.waitUntil(
-    caches.open(CACHE).then(cache =>
-      cache.addAll([
-        "/",
-        "/index.html",
-        "/app.js",
-        "/manifest.json",
-        "/icons/icon_512x512@2x.png"
-      ])
-    )
+const ASSETS = [
+  "/",
+  "/index.html",
+  "/app.js",
+  "/manifest.json",
+  "/icons/icon_512x512@2x.png"
+];
+
+// Install: cache app shell
+self.addEventListener("install", e => {
+  e.waitUntil(
+    caches.open(CACHE).then(cache => cache.addAll(ASSETS))
   );
   self.skipWaiting();
 });
 
-self.addEventListener("activate", event => {
-  event.waitUntil(
-    caches.keys().then(keys => {
-      return Promise.all(
-        keys.map(key => {
-          if (key !== CACHE) {
-            return caches.delete(key);
-          }
-        })
-      );
-    }).then(() => self.clients.claim())
+// Activate: remove old caches
+self.addEventListener("activate", e => {
+  e.waitUntil(
+    caches.keys().then(keys =>
+      Promise.all(keys.map(k => (k !== CACHE ? caches.delete(k) : null)))
+    )
   );
+  self.clients.claim();
 });
 
-self.addEventListener("fetch", event => {
-  if (event.request.method !== "GET") return;
+// Fetch strategy compatible with iOS + Android
+self.addEventListener("fetch", e => {
+  const req = e.request;
 
-  if (!event.request.url.startsWith(self.location.origin)) {
+  if (req.method !== "GET") return;
+
+  // Navigation requests (page loads) – critical for iOS PWAs
+  if (req.mode === "navigate") {
+    e.respondWith(
+      fetch(req).catch(() => caches.match("/index.html"))
+    );
     return;
   }
 
-  event.respondWith(
-    caches.match(event.request).then(cached => {
+  // Ignore cross-origin
+  if (!req.url.startsWith(self.location.origin)) return;
+
+  // Cache-first for assets
+  e.respondWith(
+    caches.match(req).then(cached => {
       if (cached) return cached;
 
-      return fetch(event.request).then(response => {
+      return fetch(req).then(res => {
+        if (!res || res.status !== 200 || res.type !== "basic") return res;
 
-        // Safari fix: do not cache redirected responses
-        if (!response || response.redirected || response.status !== 200) {
-          return response;
-        }
+        const copy = res.clone();
+        caches.open(CACHE).then(cache => cache.put(req, copy));
 
-        const copy = response.clone();
-
-        caches.open(CACHE).then(cache => {
-          cache.put(event.request, copy);
-        });
-
-        return response;
-
-      }).catch(() => caches.match(OFFLINE_URL));
+        return res;
+      }).catch(() => caches.match("/index.html"));
     })
   );
 });
