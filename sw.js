@@ -1,6 +1,6 @@
 
 
-const CACHE_VERSION = "v1";
+const CACHE_VERSION = "v2";
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `runtime-${CACHE_VERSION}`;
 
@@ -10,8 +10,7 @@ const APP_SHELL = [
   "/app.js",
   "/styles.css",
   "/manifest.json",
-  "/icons/icon-192.png",
-  "/icons/icon-512.png"
+  "/icons/icon_512x512@2x.png",
 ];
 
 
