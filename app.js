@@ -7,6 +7,13 @@ if ('serviceWorker' in navigator) {
 const saved = document.getElementById('saved');
 const noteInput = document.getElementById('note');
 
+// Vibrate when the saved label is clicked
+saved.addEventListener('click', () => {
+  if (navigator.vibrate) {
+    navigator.vibrate(50);
+  }
+});
+
 const existing = localStorage.getItem('note');
 if (existing) saved.textContent = "Saved: " + existing;
  

@@ -119,6 +119,7 @@ img {
   /* Disable drag behavior */
   -webkit-user-drag: none;
   user-drag: none;
+  pointer-events: none;
 }
 
 
